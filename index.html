@@ -111,13 +111,22 @@
           <span>Estimated Load / PSU</span>
           <strong id="stat-wattage">0W / 0W</strong>
         </div>
+        <div class="meter-track" aria-hidden="true">
+          <div id="bar-wattage" class="meter-fill meter-wattage"></div>
+        </div>
         <div class="telemetry-row">
           <span>Gaming Score</span>
           <strong id="stat-gaming-score">0 / 100</strong>
         </div>
+        <div class="meter-track" aria-hidden="true">
+          <div id="bar-gaming" class="meter-fill meter-gaming"></div>
+        </div>
         <div class="telemetry-row">
           <span>Creator Score</span>
           <strong id="stat-creator-score">0 / 100</strong>
+        </div>
+        <div class="meter-track" aria-hidden="true">
+          <div id="bar-creator" class="meter-fill meter-creator"></div>
         </div>
         <div id="compat-status" class="compat-banner compat-ok">All Components Compatible</div>
       </section>
@@ -146,6 +155,7 @@
             <button class="viewer-pill" data-cam="front" type="button">Front</button>
             <button class="viewer-pill" data-cam="top" type="button">Top</button>
             <button id="btn-toggle-glass" class="viewer-pill" type="button">Open Glass</button>
+            <button id="btn-toggle-explode" class="viewer-pill" type="button">Explode</button>
             <button id="btn-toggle-spin" class="viewer-pill active" type="button">Auto-Spin</button>
           </div>
         </div>
@@ -174,6 +184,9 @@
       <div id="modal-options" class="modal-options"></div>
     </div>
   </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
   <script src="parts.js"></script>

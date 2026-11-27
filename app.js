@@ -32,9 +32,59 @@ const viewerCaseTagEl = document.getElementById("viewer-case-tag");
 const viewerHudLabelEl = document.querySelector(".viewer-hud-label");
 const viewerHudNameEl = document.getElementById("viewer-hud-name");
 const toggleGlassBtn = document.getElementById("btn-toggle-glass");
+const toggleExplodeBtn = document.getElementById("btn-toggle-explode");
 const toggleSpinBtn = document.getElementById("btn-toggle-spin");
+const toastEl = document.getElementById("toast");
 
 let viewer3d = null;
+let prevRenderedPartIds = {};
+let hasCompletedFirstRender = false;
+let lastCompatText = "";
+let toastTimer = null;
+const counterState = {};
+
+function showToast(message) {
+  if (!toastEl) return;
+  toastEl.textContent = message;
+  toastEl.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    toastEl.classList.remove("show");
+  }, 2200);
+}
+
+function animateMetric(key, el, targetValue, formatter) {
+  if (!el) return;
+  const entry = counterState[key] || { value: targetValue, raf: null };
+  if (entry.raf) cancelAnimationFrame(entry.raf);
+
+  const startValue = entry.value;
+  if (startValue === targetValue || !hasCompletedFirstRender) {
+    entry.value = targetValue;
+    el.textContent = formatter(targetValue);
+    counterState[key] = entry;
+    return;
+  }
+
+  const duration = 360;
+  const startTime = performance.now();
+  const step = (now) => {
+    const t = Math.min(1, (now - startTime) / duration);
+    const eased = 1 - Math.pow(1 - t, 3);
+    const current = Math.round(startValue + (targetValue - startValue) * eased);
+    entry.value = current;
+    el.textContent = formatter(current);
+    if (t < 1) {
+      entry.raf = requestAnimationFrame(step);
+    } else {
+      entry.value = targetValue;
+      entry.raf = null;
+      el.textContent = formatter(targetValue);
+    }
+  };
+  entry.raf = requestAnimationFrame(step);
+  counterState[key] = entry;
+}
 
 function initTheme() {
   const savedTheme = localStorage.getItem("pc_sim_theme");
@@ -194,6 +244,20 @@ function bindEvents() {
     });
   }
 
+  if (toggleExplodeBtn) {
+    toggleExplodeBtn.addEventListener("click", () => {
+      if (!viewer3d) return;
+      const isExploded = viewer3d.toggleExplode();
+      toggleExplodeBtn.classList.toggle("active", isExploded);
+      toggleExplodeBtn.textContent = isExploded ? "Assemble" : "Explode";
+      if (isExploded && toggleGlassBtn) {
+        toggleGlassBtn.classList.add("active");
+        toggleGlassBtn.textContent = "Close Glass";
+      }
+      showToast(isExploded ? "Exploded view enabled" : "Components assembled");
+    });
+  }
+
   if (toggleSpinBtn) {
     toggleSpinBtn.addEventListener("click", () => {
       if (!viewer3d) return;
@@ -206,6 +270,9 @@ function bindEvents() {
   document.getElementById("btn-close-modal").addEventListener("click", closeSwapModal);
   document.getElementById("swap-modal").addEventListener("click", (e) => {
     if (e.target.id === "swap-modal") closeSwapModal();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeSwapModal();
   });
 }
 
@@ -254,24 +321,42 @@ function renderAll() {
   const activeBudget = state.mode === "commission" ? CLIENT_BRIEFS[state.clientIndex].budget : state.budget;
   const stats = BuildEngine.evaluateBuild(state.build, activeBudget);
 
-  // Telemetry
-  document.getElementById("stat-total-price").textContent = `£${stats.totalPrice.toLocaleString()}`;
+  // Telemetry with smooth counter animations & progress bars
+  animateMetric("totalPrice", document.getElementById("stat-total-price"), stats.totalPrice, (v) => `£${v.toLocaleString()}`);
+
   const remEl = document.getElementById("stat-remaining");
-  remEl.textContent = stats.remaining >= 0 ? `£${stats.remaining.toLocaleString()}` : `-£${Math.abs(stats.remaining).toLocaleString()}`;
+  animateMetric("remaining", remEl, stats.remaining, (v) => (v >= 0 ? `£${v.toLocaleString()}` : `-£${Math.abs(v).toLocaleString()}`));
   remEl.style.color = stats.remaining >= 0 ? "inherit" : "#f87171";
 
-  document.getElementById("stat-wattage").textContent = `${stats.estimatedLoad}W / ${state.build.psu.wattage}W`;
-  document.getElementById("stat-gaming-score").textContent = `${stats.gamingScore} / 100`;
-  document.getElementById("stat-creator-score").textContent = `${stats.creatorScore} / 100`;
+  animateMetric(
+    "wattage",
+    document.getElementById("stat-wattage"),
+    stats.estimatedLoad,
+    (v) => `${v}W / ${state.build.psu.wattage}W`
+  );
+  animateMetric("gaming", document.getElementById("stat-gaming-score"), stats.gamingScore, (v) => `${v} / 100`);
+  animateMetric("creator", document.getElementById("stat-creator-score"), stats.creatorScore, (v) => `${v} / 100`);
+
+  const wattBar = document.getElementById("bar-wattage");
+  if (wattBar) {
+    const wattPct = Math.min(100, Math.round((stats.estimatedLoad / state.build.psu.wattage) * 100));
+    wattBar.style.width = `${wattPct}%`;
+    wattBar.classList.toggle("warn", state.build.psu.wattage < stats.recommendedPsu || wattPct > 80);
+  }
+  const gamingBar = document.getElementById("bar-gaming");
+  if (gamingBar) gamingBar.style.width = `${stats.gamingScore}%`;
+  const creatorBar = document.getElementById("bar-creator");
+  if (creatorBar) creatorBar.style.width = `${stats.creatorScore}%`;
 
   const compatBanner = document.getElementById("compat-status");
-  if (stats.issues.length === 0) {
-    compatBanner.className = "compat-banner compat-ok";
-    compatBanner.textContent = "All Components Compatible & Within Budget";
-  } else {
-    compatBanner.className = "compat-banner compat-warn";
-    compatBanner.textContent = stats.issues[0];
+  const nextCompatText = stats.issues.length === 0 ? "All Components Compatible & Within Budget" : stats.issues[0];
+  compatBanner.className = stats.issues.length === 0 ? "compat-banner compat-ok" : "compat-banner compat-warn";
+  compatBanner.textContent = nextCompatText;
+  if (hasCompletedFirstRender && nextCompatText !== lastCompatText) {
+    void compatBanner.offsetWidth;
+    compatBanner.classList.add("pulse");
   }
+  lastCompatText = nextCompatText;
 
   // Update 3D PC Model Preview
   if (viewer3d) {
@@ -283,14 +368,20 @@ function renderAll() {
   }
   updateViewerHud(null);
 
-  // Render Parts
+  // Render Parts with staggered initial entrance & change highlight shimmer
+  const nextPartIds = {};
   partsListEl.innerHTML = "";
-  Object.keys(CATEGORY_LABELS).forEach((cat) => {
+  Object.keys(CATEGORY_LABELS).forEach((cat, idx) => {
     const part = state.build[cat];
     const isLocked = Boolean(state.locked[cat]);
+    const didChange = hasCompletedFirstRender && prevRenderedPartIds[cat] && prevRenderedPartIds[cat] !== part.id;
+    nextPartIds[cat] = part.id;
 
     const card = document.createElement("div");
-    card.className = "part-card";
+    card.className = `part-card${!hasCompletedFirstRender ? " animate-enter" : ""}${didChange ? " just-updated" : ""}`;
+    if (!hasCompletedFirstRender) {
+      card.style.animationDelay = `${idx * 45}ms`;
+    }
     card.dataset.cat = cat;
     card.innerHTML = `
       <div class="part-category">${CATEGORY_LABELS[cat]}</div>
@@ -325,12 +416,16 @@ function renderAll() {
       const cat = btn.dataset.cat;
       if (btn.dataset.action === "lock") {
         state.locked[cat] = !state.locked[cat];
+        showToast(state.locked[cat] ? `Locked ${CATEGORY_LABELS[cat]}` : `Unlocked ${CATEGORY_LABELS[cat]}`);
         renderAll();
       } else if (btn.dataset.action === "swap") {
         openSwapModal(cat);
       }
     });
   });
+
+  prevRenderedPartIds = nextPartIds;
+  hasCompletedFirstRender = true;
 }
 
 function openSwapModal(category) {
@@ -367,16 +462,25 @@ function openSwapModal(category) {
       state.build[category] = item;
       state.locked[category] = true;
       closeSwapModal();
+      showToast(`Installed ${item.name}`);
       renderAll();
     });
     optionsEl.appendChild(row);
   });
 
   modal.classList.remove("hidden");
+  requestAnimationFrame(() => modal.classList.add("is-open"));
 }
 
 function closeSwapModal() {
-  document.getElementById("swap-modal").classList.add("hidden");
+  const modal = document.getElementById("swap-modal");
+  if (!modal || modal.classList.contains("hidden")) return;
+  modal.classList.remove("is-open");
+  setTimeout(() => {
+    if (!modal.classList.contains("is-open")) {
+      modal.classList.add("hidden");
+    }
+  }, 220);
 }
 
 function renderClientBrief() {
@@ -426,6 +530,7 @@ function copySpecToClipboard() {
   navigator.clipboard.writeText(lines.join("\n")).then(() => {
     const btn = document.getElementById("btn-copy-spec");
     btn.textContent = "Copied!";
+    showToast("Spec list copied to clipboard");
     setTimeout(() => (btn.textContent = "Copy Spec List"), 1500);
   });
 }

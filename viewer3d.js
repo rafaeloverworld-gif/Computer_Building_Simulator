@@ -13,9 +13,16 @@ class PCViewer3D {
     this.currentStats = null;
     this.isDark = false;
     this.glassOpen = false;
+    this.exploded = false;
     this.autoRotate = true;
     this.hoveredCategory = null;
     this.externalHighlight = null;
+    this.prevBuildIds = {};
+    this.partAnims = {};
+    this.explodeProgress = 0;
+    this.fanRamp = 0.25;
+    this.pwrBtnMat = null;
+    this.hasRgbBuild = false;
 
     // Camera spherical orbit coordinates
     this.orbit = {
@@ -232,6 +239,14 @@ class PCViewer3D {
     return this.glassOpen;
   }
 
+  toggleExplode() {
+    this.exploded = !this.exploded;
+    if (this.exploded && !this.glassOpen) {
+      this.glassOpen = true;
+    }
+    return this.exploded;
+  }
+
   toggleAutoRotate() {
     this.autoRotate = !this.autoRotate;
     return this.autoRotate;
@@ -246,8 +261,50 @@ class PCViewer3D {
   }
 
   updateBuild(build, stats) {
+    const prevIds = this.prevBuildIds || {};
+    const changedCats = [];
+    const isInitial = Object.keys(prevIds).length === 0;
+    const caseChanged = !isInitial && prevIds.case !== build.case.id;
+
+    Object.keys(build).forEach((cat) => {
+      if (isInitial || caseChanged || prevIds[cat] !== build[cat].id) {
+        changedCats.push(cat);
+      }
+      prevIds[cat] = build[cat].id;
+    });
+    this.prevBuildIds = prevIds;
+
     this.currentBuild = build;
     this.currentStats = stats;
+
+    // Schedule smooth slide-in installation animations for newly swapped / generated parts
+    const installOffsets = {
+      case: [0, 0.35, 0],
+      psu: [-0.9, 0, 0.6],
+      motherboard: [0, 0, 0.85],
+      cpu: [0, 0.55, 0.95],
+      ram: [0, 0.2, 0.9],
+      storage: [0, 0.15, 0.75],
+      gpu: [0, -0.1, 1.35]
+    };
+    const staggerOrder = ["case", "psu", "motherboard", "cpu", "ram", "storage", "gpu"];
+    const multiChange = changedCats.length > 2;
+
+    this.partAnims = {};
+    changedCats.forEach((cat) => {
+      const orderIdx = staggerOrder.indexOf(cat);
+      this.partAnims[cat] = {
+        delay: multiChange ? Math.max(0, orderIdx) * 0.055 : 0,
+        elapsed: 0,
+        duration: multiChange ? 0.48 : 0.44,
+        offset: installOffsets[cat] || [0, 0, 0.8]
+      };
+    });
+
+    if (changedCats.length > 0) {
+      this.fanRamp = multiChange ? 0.18 : 0.55;
+    }
+
     if (this.useThree) {
       this._rebuildThreeScene();
     }
@@ -539,13 +596,14 @@ class PCViewer3D {
     }
 
     // Front I/O power button & USB ports on top-front edge
+    this.pwrBtnMat = new THREE.MeshStandardMaterial({
+      color: 0xe2e8f0,
+      emissive: 0x38bdf8,
+      emissiveIntensity: 0.9
+    });
     const pwrBtn = new THREE.Mesh(
       new THREE.CylinderGeometry(0.055, 0.055, 0.03, 16),
-      new THREE.MeshStandardMaterial({
-        color: 0xe2e8f0,
-        emissive: 0x38bdf8,
-        emissiveIntensity: 0.9
-      })
+      this.pwrBtnMat
     );
     pwrBtn.position.set(caseL / 2 - 0.28, caseH / 2 + 0.015, caseW / 2 - 0.3);
     caseGroup.add(pwrBtn);
@@ -1194,23 +1252,86 @@ class PCViewer3D {
         );
         this.camera.lookAt(0, this.orbit.targetY, 0);
 
-        // Spin all fans smoothly
+        // Subtle studio breathing float on root assembly
+        if (this.rootGroup) {
+          this.rootGroup.position.y = Math.sin(this.clock * 1.35) * 0.025;
+        }
+
+        // Load-reactive smooth fan spin-up
+        this.fanRamp += (1.0 - this.fanRamp) * Math.min(1, dt * 2.8);
+        const loadMultiplier = this.currentStats
+          ? 0.85 + Math.min(this.currentStats.estimatedLoad / 550, 1.0) * 0.65
+          : 1.0;
         for (const f of this.fans) {
-          f.rotor.rotation.z -= dt * f.speed;
+          f.rotor.rotation.z -= dt * f.speed * this.fanRamp * loadMultiplier;
         }
 
-        // Cycle RGB LEDs smoothly
-        for (const mat of this.rgbMaterials) {
-          const hue = ((this.clock * 0.16 + (mat.userData.rgbOffset || 0) * 0.15) % 1 + 1) % 1;
-          mat.color.setHSL(hue, 0.9, 0.6);
-          mat.emissive.setHSL(hue, 0.95, 0.55);
+        // Power LED gentle breathing pulse
+        if (this.pwrBtnMat) {
+          this.pwrBtnMat.emissiveIntensity = 0.75 + Math.sin(this.clock * 2.6) * 0.45;
         }
 
-        // Smooth tempered glass open/close slide
+        // Cycle RGB LEDs smoothly & subtly tint interior glow
+        if (this.rgbMaterials.length > 0) {
+          for (const mat of this.rgbMaterials) {
+            const hue = ((this.clock * 0.16 + (mat.userData.rgbOffset || 0) * 0.15) % 1 + 1) % 1;
+            mat.color.setHSL(hue, 0.9, 0.6);
+            mat.emissive.setHSL(hue, 0.95, 0.55);
+          }
+          const ambientHue = (this.clock * 0.16) % 1;
+          this.interiorLight.color.setHSL(ambientHue, 0.55, 0.78);
+        }
+
+        // Smooth Exploded View & Per-Part Installation Slide-In Animations
+        const targetExplode = this.exploded ? 1 : 0;
+        this.explodeProgress += (targetExplode - this.explodeProgress) * Math.min(1, dt * 7.5);
+        const explodeOffsets = {
+          case: [0, 0, 0],
+          motherboard: [0, 0, 0.35],
+          storage: [0, 0.08, 0.78],
+          ram: [0.15, 0.12, 1.05],
+          cpu: [-0.08, 0.25, 1.15],
+          gpu: [0.1, -0.18, 1.65],
+          psu: [-0.55, -0.18, 0.95]
+        };
+
+        Object.entries(this.categoryGroups).forEach(([cat, group]) => {
+          let ox = 0;
+          let oy = 0;
+          let oz = 0;
+
+          // Exploded offset
+          const ex = explodeOffsets[cat];
+          if (ex && this.explodeProgress > 0.001) {
+            ox += ex[0] * this.explodeProgress;
+            oy += ex[1] * this.explodeProgress;
+            oz += ex[2] * this.explodeProgress;
+          }
+
+          // Installation slide-in animation (cubic ease-out with gentle settle)
+          const anim = this.partAnims[cat];
+          if (anim) {
+            anim.elapsed += dt;
+            const localT = Math.max(0, anim.elapsed - anim.delay);
+            const rawProgress = Math.min(1, localT / anim.duration);
+            const eased = 1 - Math.pow(1 - rawProgress, 3);
+            const rem = 1 - eased;
+            ox += anim.offset[0] * rem;
+            oy += anim.offset[1] * rem;
+            oz += anim.offset[2] * rem;
+            if (rawProgress >= 1) {
+              delete this.partAnims[cat];
+            }
+          }
+
+          group.position.set(ox, oy, oz);
+        });
+
+        // Smooth tempered glass open/close slide (opens wider when exploded)
         if (this.glassGroup) {
-          const targetOpen = this.glassOpen ? 1 : 0;
-          this.glassProgress += (targetOpen - this.glassProgress) * 0.12;
-          this.glassGroup.position.z = this.glassBaseZ + this.glassProgress * 1.15;
+          const targetOpen = this.glassOpen || this.exploded ? 1 : 0;
+          this.glassProgress += (targetOpen - this.glassProgress) * Math.min(1, dt * 7.5);
+          this.glassGroup.position.z = this.glassBaseZ + this.glassProgress * (this.exploded ? 1.85 : 1.15);
           this.glassGroup.position.x = -this.glassProgress * 0.35;
           this.glassGroup.visible = this.glassProgress < 0.96;
         }
