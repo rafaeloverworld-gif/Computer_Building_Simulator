@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Computer Building Simulator</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="container topbar-inner">
+      <div class="brand">
+        <div class="brand-badge">PC</div>
+        <div>
+          <h1>Computer Building Simulator</h1>
+          <p class="subtitle">Budget Spec Recommender &amp; Compatibility Sandbox</p>
+        </div>
+      </div>
+      <nav class="mode-switch" aria-label="Application Mode">
+        <button id="btn-mode-recommender" class="mode-btn active" type="button">Budget Recommender</button>
+        <button id="btn-mode-commission" class="mode-btn" type="button">Client Commissions</button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container main-grid">
+    <!-- Left Sidebar: Controls / Client Brief -->
+    <aside class="panel controls-panel">
+      <!-- Recommender Controls -->
+      <section id="panel-recommender">
+        <h2>Build Parameters</h2>
+        <div class="form-group">
+          <label for="budget-slider">
+            Target Budget
+            <span id="budget-display" class="highlight-value">£1,200</span>
+          </label>
+          <input id="budget-slider" type="range" min="500" max="3500" step="50" value="1200" />
+          <div class="range-labels">
+            <span>£500</span>
+            <span>£2,000</span>
+            <span>£3,500</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="workload-select">Primary Workload</label>
+          <select id="workload-select">
+            <option value="gaming-1080p">Gaming (1080p High FPS)</option>
+            <option value="gaming-1440p" selected>Gaming (1440p Ultra)</option>
+            <option value="gaming-4k">Gaming (4K Enthusiast)</option>
+            <option value="creator">Video Editing &amp; 3D Rendering</option>
+            <option value="office">Office, Coding &amp; Study</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="formfactor-select">Case Size Preference</label>
+          <select id="formfactor-select">
+            <option value="any" selected>Any Size (Best Value)</option>
+            <option value="ATX">Standard Mid-Tower (ATX)</option>
+            <option value="mATX">Compact Micro-ATX (mATX)</option>
+          </select>
+        </div>
+
+        <div class="form-group checkbox-group">
+          <input id="no-rgb-check" type="checkbox" />
+          <label for="no-rgb-check">Stealth / Non-RGB parts only</label>
+        </div>
+
+        <button id="btn-generate" class="btn-primary" type="button">Auto-Generate Best Spec</button>
+      </section>
+
+      <!-- Client Commission Controls -->
+      <section id="panel-commission" class="hidden">
+        <div class="commission-header">
+          <h2>Client Brief</h2>
+          <button id="btn-new-client" class="btn-secondary btn-sm" type="button">Next Client</button>
+        </div>
+        <div class="client-card">
+          <div class="client-meta">
+            <strong id="client-name">Alex Mercer</strong>
+            <span id="client-tag" class="badge">1440p Gamer</span>
+          </div>
+          <p id="client-request" class="client-quote"></p>
+          <ul id="client-requirements" class="req-list"></ul>
+        </div>
+        <div class="commission-actions">
+          <button id="btn-auto-fill-client" class="btn-secondary" type="button">Auto-Suggest for Client</button>
+          <button id="btn-submit-client" class="btn-primary" type="button">Submit Build for Review</button>
+        </div>
+        <div id="commission-result" class="commission-result hidden"></div>
+      </section>
+
+      <!-- System Telemetry Summary -->
+      <section class="telemetry-box">
+        <h3>System Telemetry</h3>
+        <div class="telemetry-row">
+          <span>Total Price</span>
+          <strong id="stat-total-price">£0</strong>
+        </div>
+        <div class="telemetry-row">
+          <span>Remaining Budget</span>
+          <strong id="stat-remaining">£0</strong>
+        </div>
+        <div class="telemetry-row">
+          <span>Estimated Load / PSU</span>
+          <strong id="stat-wattage">0W / 0W</strong>
+        </div>
+        <div class="telemetry-row">
+          <span>Gaming Score</span>
+          <strong id="stat-gaming-score">0 / 100</strong>
+        </div>
+        <div class="telemetry-row">
+          <span>Creator Score</span>
+          <strong id="stat-creator-score">0 / 100</strong>
+        </div>
+        <div id="compat-status" class="compat-banner compat-ok">All Components Compatible</div>
+      </section>
+    </aside>
+
+    <!-- Right Area: Component List -->
+    <section class="panel build-panel">
+      <div class="build-header">
+        <div>
+          <h2>Recommended Spec Sheet</h2>
+          <p id="build-summary-text" class="subtitle">Balanced configuration tailored to your target budget.</p>
+        </div>
+        <button id="btn-copy-spec" class="btn-secondary" type="button">Copy Spec List</button>
+      </div>
+
+      <div id="parts-list" class="parts-list"></div>
+    </section>
+  </main>
+
+  <!-- Part Swap Modal -->
+  <div id="swap-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="modal-title">Swap Component</h3>
+        <button id="btn-close-modal" class="icon-btn" type="button" aria-label="Close">X</button>
+      </div>
+      <p id="modal-subtitle" class="subtitle"></p>
+      <div id="modal-options" class="modal-options"></div>
+    </div>
+  </div>
+
+  <script src="data/parts.js"></script>
+  <script src="js/engine.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
