@@ -4,6 +4,7 @@ An interactive PC Building & Budget Spec Recommender web application built with 
 
 ## Features
 
+- **Interactive 3D PC Preview**: Live procedural 3D model above the spec sheet that updates dynamically as you change parts—reflecting ATX vs. Micro-ATX case size, GPU length & fan count, air vs. 240mm AIO CPU cooling, RAM & fan RGB lighting, and PSU wattage. Supports drag-to-orbit, zoom, camera presets, opening the tempered glass side panel, hover highlighting, and clicking parts directly to swap them.
 - **Budget Spec Recommender**: Enter your budget (£500 – £3,500), primary workload (1080p/1440p/4K Gaming, Video Editing & 3D, or Office/Study), and form factor (ATX or Micro-ATX) to automatically generate a balanced, compatible build.
 - **Smart Compatibility Engine**: Enforces CPU socket and motherboard alignment, DDR4/DDR5 RAM matching, 25%+ PSU wattage headroom, and case form-factor/GPU clearance checks.
 - **Interactive Part Swapping & Locking**: Lock parts you want to keep or swap any component from a filtered list of compatible alternatives while tracking live budget and wattage updates.

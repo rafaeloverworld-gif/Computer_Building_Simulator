@@ -27,6 +27,14 @@ const formFactorSelect = document.getElementById("formfactor-select");
 const noRgbCheck = document.getElementById("no-rgb-check");
 const partsListEl = document.getElementById("parts-list");
 const themeToggleBtn = document.getElementById("btn-theme-toggle");
+const viewerContainerEl = document.getElementById("pc-3d-canvas");
+const viewerCaseTagEl = document.getElementById("viewer-case-tag");
+const viewerHudLabelEl = document.querySelector(".viewer-hud-label");
+const viewerHudNameEl = document.getElementById("viewer-hud-name");
+const toggleGlassBtn = document.getElementById("btn-toggle-glass");
+const toggleSpinBtn = document.getElementById("btn-toggle-spin");
+
+let viewer3d = null;
 
 function initTheme() {
   const savedTheme = localStorage.getItem("pc_sim_theme");
@@ -39,10 +47,57 @@ function applyTheme(isDark) {
   document.body.classList.toggle("dark-mode", isDark);
   themeToggleBtn.textContent = isDark ? "Light Mode" : "Dark Mode";
   localStorage.setItem("pc_sim_theme", isDark ? "dark" : "light");
+  if (viewer3d) {
+    viewer3d.setTheme(isDark);
+  }
+}
+
+function updateViewerHud(category) {
+  if (!state.build || !viewerHudLabelEl || !viewerHudNameEl) return;
+  if (category && state.build[category]) {
+    viewerHudLabelEl.textContent = CATEGORY_LABELS[category];
+    viewerHudNameEl.textContent = state.build[category].name;
+  } else {
+    const coolerType = state.build.cpu.tdp >= 105 ? "240mm AIO" : "Air Cooler";
+    viewerHudLabelEl.textContent = "Live 3D Preview";
+    viewerHudNameEl.textContent = `${state.build.case.name} · ${coolerType}`;
+  }
+}
+
+function highlightPartCard(category) {
+  partsListEl.querySelectorAll(".part-card").forEach((card) => {
+    card.classList.toggle("is-highlighted", Boolean(category) && card.dataset.cat === category);
+  });
+}
+
+function initViewer3D() {
+  if (!viewerContainerEl || typeof PCViewer3D === "undefined") return;
+  viewer3d = new PCViewer3D(viewerContainerEl, {
+    onPartClick: (cat) => {
+      if (CATEGORY_LABELS[cat]) {
+        openSwapModal(cat);
+      }
+    },
+    onPartHover: (cat) => {
+      highlightPartCard(cat);
+      updateViewerHud(cat);
+    }
+  });
+  viewer3d.setTheme(document.body.classList.contains("dark-mode"));
+
+  // Sync Auto-Spin button if user drags the canvas
+  viewerContainerEl.addEventListener("mousedown", () => {
+    setTimeout(() => {
+      if (viewer3d && toggleSpinBtn) {
+        toggleSpinBtn.classList.toggle("active", viewer3d.autoRotate);
+      }
+    }, 120);
+  });
 }
 
 function init() {
   initTheme();
+  initViewer3D();
   state.build = BuildEngine.generateBuild({
     budget: state.budget,
     workload: state.workload,
@@ -118,6 +173,35 @@ function bindEvents() {
   // Copy spec list
   document.getElementById("btn-copy-spec").addEventListener("click", copySpecToClipboard);
 
+  // 3D Viewer controls
+  const camButtons = document.querySelectorAll(".viewer-pill[data-cam]");
+  camButtons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      if (!viewer3d) return;
+      camButtons.forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      viewer3d.setCameraPreset(btn.dataset.cam);
+      if (toggleSpinBtn) toggleSpinBtn.classList.remove("active");
+    });
+  });
+
+  if (toggleGlassBtn) {
+    toggleGlassBtn.addEventListener("click", () => {
+      if (!viewer3d) return;
+      const isOpen = viewer3d.toggleGlass();
+      toggleGlassBtn.classList.toggle("active", isOpen);
+      toggleGlassBtn.textContent = isOpen ? "Close Glass" : "Open Glass";
+    });
+  }
+
+  if (toggleSpinBtn) {
+    toggleSpinBtn.addEventListener("click", () => {
+      if (!viewer3d) return;
+      const spinning = viewer3d.toggleAutoRotate();
+      toggleSpinBtn.classList.toggle("active", spinning);
+    });
+  }
+
   // Modal close
   document.getElementById("btn-close-modal").addEventListener("click", closeSwapModal);
   document.getElementById("swap-modal").addEventListener("click", (e) => {
@@ -189,6 +273,16 @@ function renderAll() {
     compatBanner.textContent = stats.issues[0];
   }
 
+  // Update 3D PC Model Preview
+  if (viewer3d) {
+    viewer3d.updateBuild(state.build, stats);
+  }
+  if (viewerCaseTagEl) {
+    const sizeLabel = state.build.case.formFactors.includes("ATX") ? "ATX Mid-Tower" : "Compact mATX";
+    viewerCaseTagEl.textContent = stats.hasRgb ? `${sizeLabel} · RGB` : `${sizeLabel} · Stealth`;
+  }
+  updateViewerHud(null);
+
   // Render Parts
   partsListEl.innerHTML = "";
   Object.keys(CATEGORY_LABELS).forEach((cat) => {
@@ -197,6 +291,7 @@ function renderAll() {
 
     const card = document.createElement("div");
     card.className = "part-card";
+    card.dataset.cat = cat;
     card.innerHTML = `
       <div class="part-category">${CATEGORY_LABELS[cat]}</div>
       <div>
@@ -214,6 +309,14 @@ function renderAll() {
         </div>
       </div>
     `;
+    card.addEventListener("mouseenter", () => {
+      if (viewer3d) viewer3d.highlightPart(cat);
+      updateViewerHud(cat);
+    });
+    card.addEventListener("mouseleave", () => {
+      if (viewer3d) viewer3d.clearHighlight();
+      updateViewerHud(null);
+    });
     partsListEl.appendChild(card);
   });
 
