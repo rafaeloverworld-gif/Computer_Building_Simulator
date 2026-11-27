@@ -16,10 +16,15 @@
           <p class="subtitle">Budget Spec Recommender &amp; Compatibility Sandbox</p>
         </div>
       </div>
-      <nav class="mode-switch" aria-label="Application Mode">
-        <button id="btn-mode-recommender" class="mode-btn active" type="button">Budget Recommender</button>
-        <button id="btn-mode-commission" class="mode-btn" type="button">Client Commissions</button>
-      </nav>
+      <div class="topbar-actions">
+        <nav class="mode-switch" aria-label="Application Mode">
+          <button id="btn-mode-recommender" class="mode-btn active" type="button">Budget Recommender</button>
+          <button id="btn-mode-commission" class="mode-btn" type="button">Client Commissions</button>
+        </nav>
+        <button id="btn-theme-toggle" class="btn-secondary btn-sm" type="button" aria-label="Toggle Dark Mode">
+          Dark Mode
+        </button>
+      </div>
     </div>
   </header>
 
@@ -144,8 +149,8 @@
     </div>
   </div>
 
-  <script src="data/parts.js"></script>
-  <script src="js/engine.js"></script>
-  <script src="js/app.js"></script>
+  <script src="parts.js"></script>
+  <script src="engine.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>

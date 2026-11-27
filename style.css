@@ -2,16 +2,35 @@
   --bg: #f4f7fb;
   --surface: #ffffff;
   --surface-alt: #eef3f9;
+  --surface-hover: #e2ebf5;
   --border: #d6e0ec;
   --primary: #1d63b8;
   --primary-hover: #164f94;
   --text: #162232;
   --text-muted: #55657a;
+  --reason-text: #2b4c7e;
   --ok-bg: #e7f6ed;
   --ok-text: #166534;
   --warn-bg: #fef2f2;
   --warn-text: #991b1b;
   --radius: 10px;
+}
+
+body.dark-mode {
+  --bg: #0d131f;
+  --surface: #151e2e;
+  --surface-alt: #1e293b;
+  --surface-hover: #28354b;
+  --border: #2d3b52;
+  --primary: #4f9cf9;
+  --primary-hover: #3b82f6;
+  --text: #f1f5f9;
+  --text-muted: #94a3b8;
+  --reason-text: #7dd3fc;
+  --ok-bg: rgba(22, 101, 52, 0.25);
+  --ok-text: #86efac;
+  --warn-bg: rgba(153, 27, 27, 0.28);
+  --warn-text: #fca5a5;
 }
 
 * {
@@ -25,6 +44,7 @@ body {
   background: var(--bg);
   color: var(--text);
   line-height: 1.5;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 .container {
@@ -44,6 +64,13 @@ body {
   justify-content: space-between;
   align-items: center;
   gap: 16px;
+  flex-wrap: wrap;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   flex-wrap: wrap;
 }
 
@@ -107,7 +134,7 @@ h3 {
 .mode-btn.active {
   background: var(--surface);
   color: var(--primary);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
 .main-grid {
@@ -208,13 +235,13 @@ select {
 }
 
 .btn-secondary:hover {
-  background: #e2ebf5;
+  background: var(--surface-hover);
 }
 
 .btn-sm {
   width: auto;
-  padding: 5px 10px;
-  font-size: 0.8rem;
+  padding: 8px 12px;
+  font-size: 0.84rem;
 }
 
 .telemetry-box {
@@ -309,7 +336,7 @@ select {
 
 .part-reason {
   font-size: 0.82rem;
-  color: #2b4c7e;
+  color: var(--reason-text);
   margin-top: 5px;
 }
 
@@ -336,8 +363,13 @@ select {
   border-radius: 5px;
   border: 1px solid var(--border);
   background: var(--surface-alt);
+  color: var(--text);
   cursor: pointer;
   font-weight: 600;
+}
+
+.chip-btn:hover {
+  background: var(--surface-hover);
 }
 
 .chip-btn.locked {
@@ -412,7 +444,7 @@ select {
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.5);
+  background: rgba(8, 12, 20, 0.72);
   display: grid;
   place-items: center;
   padding: 20px;
@@ -421,6 +453,7 @@ select {
 
 .modal-card {
   background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: var(--radius);
   max-width: 620px;
   width: 100%;
@@ -438,6 +471,7 @@ select {
 
 .icon-btn {
   background: var(--surface-alt);
+  color: var(--text);
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 4px 10px;

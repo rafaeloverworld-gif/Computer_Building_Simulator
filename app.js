@@ -26,8 +26,23 @@ const workloadSelect = document.getElementById("workload-select");
 const formFactorSelect = document.getElementById("formfactor-select");
 const noRgbCheck = document.getElementById("no-rgb-check");
 const partsListEl = document.getElementById("parts-list");
+const themeToggleBtn = document.getElementById("btn-theme-toggle");
+
+function initTheme() {
+  const savedTheme = localStorage.getItem("pc_sim_theme");
+  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const isDark = savedTheme ? savedTheme === "dark" : prefersDark;
+  applyTheme(isDark);
+}
+
+function applyTheme(isDark) {
+  document.body.classList.toggle("dark-mode", isDark);
+  themeToggleBtn.textContent = isDark ? "Light Mode" : "Dark Mode";
+  localStorage.setItem("pc_sim_theme", isDark ? "dark" : "light");
+}
 
 function init() {
+  initTheme();
   state.build = BuildEngine.generateBuild({
     budget: state.budget,
     workload: state.workload,
@@ -41,6 +56,11 @@ function init() {
 }
 
 function bindEvents() {
+  themeToggleBtn.addEventListener("click", () => {
+    const isCurrentlyDark = document.body.classList.contains("dark-mode");
+    applyTheme(!isCurrentlyDark);
+  });
+
   budgetSlider.addEventListener("input", (e) => {
     state.budget = Number(e.target.value);
     budgetDisplay.textContent = `£${state.budget.toLocaleString()}`;
@@ -154,7 +174,7 @@ function renderAll() {
   document.getElementById("stat-total-price").textContent = `£${stats.totalPrice.toLocaleString()}`;
   const remEl = document.getElementById("stat-remaining");
   remEl.textContent = stats.remaining >= 0 ? `£${stats.remaining.toLocaleString()}` : `-£${Math.abs(stats.remaining).toLocaleString()}`;
-  remEl.style.color = stats.remaining >= 0 ? "inherit" : "#991b1b";
+  remEl.style.color = stats.remaining >= 0 ? "inherit" : "#f87171";
 
   document.getElementById("stat-wattage").textContent = `${stats.estimatedLoad}W / ${state.build.psu.wattage}W`;
   document.getElementById("stat-gaming-score").textContent = `${stats.gamingScore} / 100`;
@@ -281,12 +301,12 @@ function evaluateClientCommission() {
 
   resultBox.classList.remove("hidden");
   if (passed) {
-    resultBox.style.background = "#e7f6ed";
-    resultBox.style.color = "#166534";
+    resultBox.style.background = "var(--ok-bg)";
+    resultBox.style.color = "var(--ok-text)";
     resultBox.innerHTML = `<strong>Commission Passed!</strong> ${client.name} loved the build (£${stats.totalPrice} / £${client.budget}).`;
   } else {
-    resultBox.style.background = "#fef2f2";
-    resultBox.style.color = "#991b1b";
+    resultBox.style.background = "var(--warn-bg)";
+    resultBox.style.color = "var(--warn-text)";
     const reason = stats.issues.length > 0 ? stats.issues[0] : "One or more client performance/style requirements were missed.";
     resultBox.innerHTML = `<strong>Needs Adjustment:</strong> ${reason}`;
   }
